@@ -8,7 +8,7 @@
 #                          q-partial fractions.
 # 2) first_poly_j: determine the polynomial g_0j(x) in the q-partial fraction of F_n(x) using a
 #                  exponential sums.
-# 3) GRS      : return a list of Gaussian-Ramanujan sums for a given k and j, and for all 0<= t<k.
+# 3) GRS      : returns a list of Gaussian-Ramanujan sums for a given k and j, and for all 0<= t<k.
 # 4) GRS_table: draws the k^2 values of Gaussian-Ramanujan sum for all t,j
 # 5) W1_taylor: determines W1(t,N) for t in [l,u] using Taylor series via bell polynomials.
 # 6) W2_taylor: determines W1(t,N) for t in [l,u] using in-built taylor method.
