@@ -1,0 +1,404 @@
+︠##########################################################################################
+# This file contains the following functions, along with helper functions:
+# 1) Restricted_Partition :Given a positive integer N and a range [l,u], this method determines the
+#                          values p_N(t) for t in [l,u] using q-partial fractions on the generating
+#                          function F_N(x)=1/((1-x)(1-x^2)...(1-x^N)) Moreover, it also determines
+#                          the waves Wj(t,N) for 1<=j<=N. There is also an option for printing the
+#                          q-partial fractions.
+# 2) first_poly_j: determine the polynomial g_0j(x) in the q-partial fraction of F_n(x) using a
+#                  exponential sums.
+# 3) GRS      : return a list of Gaussian-Ramanujan sums for a given k and j, and for all 0<= t<k.
+# 4) GRS_table: draws the k^2 values of Gaussian-Ramanujan sum for all t,j
+# 5) W1_taylor: determines W1(t,N) for t in [l,u] using Taylor series via bell polynomials.
+# 6) W2_taylor: determines W1(t,N) for t in [l,u] using in-built taylor method.
+###########################################################################################
+
+###########################################################################################
+# Computing the Restricted Partition p_n(t) using q-partial fractions on the generating
+# function F_n(x)=1/((1-x)(1-x^2)...(1-x^n))
+# INPUT:
+#       n: restricted partition for {1,2,...,n}
+#       [s1,s2]: compute p_n(t) for t in [s1,s2]
+#       freq: 1<=freq<=n, computes the contribution of the freq, i.e., W_freq(t,n).
+#             Default: -1, computes p_n(t)
+#       print: boolean, if True prints the q-partial fraction of F_n(x).
+#             Default: False.
+# OUTPUT:
+#       if freq != -1, list of values W_freq(t,n) for t in [s1,s2]
+#       if freq != -1, list of values p_n(t) for t in [s1,s2]
+# EXAMPLE:
+#
+# To print q-partial fraction of F_n(x) and obtain the value p_n(t) for t in [l,u].
+# N,l,u=4,1,20
+# L=Restricted_Partition(N,l,u,0,True)
+#
+###########################################################################################
+def Restricted_Partition(n,s1,s2,freq=0,print_qPF=False):
+    P=PolynomialRing(QQ,'x')
+    delta=n%2
+    N=range(1,n+1)
+    D=list_count_divisors(N)
+
+    if freq<0 or freq>n:
+        print("Provide a valid frequence: an integer in [0,"+str(n)+"].")
+        return
+
+    F=list_cyclotomic_with_powers(D)
+    #print("The given list of numbers:",N)
+    L=extended_cover_up(P(1),F)
+
+    M=[]
+    for k in range(len(L)):
+        g=(-1)^(D[k+1]+delta)*P(inverse_cyclotomic_polynomial(k+1))^(D[k+1])
+        M.append(L[k]*g)
+
+    S=str("(")+str(M[0])+str(")")+str("/")+str("(")+str(P(1))+str("-")+str(P(x))+str(")")+str("^")+str(n)
+    for k in range(1,len(L)):
+        S+=str("\n\n")+str("+")+str("(")+str(M[k])+str(")")+str("/")+str("(")+str(P(1))+str("-")+str(P(x)^(k+1))+str(")")+str("^")+str(floor(n/(k+1)))
+
+    #print("The q-PF:\n"+S)
+
+
+    E=[]
+    for k in range(len(L)):
+        E.append(gen_taylor(M[k],k+1))
+
+    if print_qPF:
+        print("\n\nThe list of polys:")
+        for j in range(len(E)):
+            print("\n")
+            print(j+1,E[j])
+
+    RP=[]
+    for t in range(s1,s2+1):
+        poly_part=E[0]
+        poly_sum=0
+        for i in range(0,n):
+            poly_sum=poly_sum+poly_part[i]*binomial(t+n-1-i,t)
+
+        periodic_sum=0
+        periodic_sum_list=[0]
+        for j in range(1,n):
+            temp_sum=0
+            L=E[j]
+            for i in range(len(L)):
+                temp_sum=temp_sum+L[i][t%(j+1)]*binomial(floor(t/(j+1))+floor(n/(j+1))-1-i,floor(t/(j+1)))
+            periodic_sum_list.append(temp_sum)
+        periodic_sum=sum(periodic_sum_list)
+
+        if freq==1:
+            RP.append((t,poly_sum))
+        elif freq!=1 and freq!=0:
+            RP.append((t,periodic_sum_list[freq-1]))
+        else:
+            RP.append((t,poly_sum+periodic_sum))
+    return RP
+
+###########################################################################################
+# computation of the first polynomials in the q-partial fraction of F_n(x)
+# through roots of unity.
+# INPUT:
+#      n: specify the n in F_n(x)
+#      j: g_0j(x)/(1-x^j)^(floor(N/j))
+# Output:
+#        the polynomial g_0j(x)
+###########################################################################################
+def first_poly_j(n,j):
+    P=PolynomialRing(QQ,'x')
+    N=n
+    n=n%j
+    g=1
+    for k in range(1,n+1):
+        g*=(1-x^k)
+    f=P(g/((1-x^j)^(floor(n/j))))
+
+    phi=cyclotomic_polynomial(j)
+    R=[]
+    for k in range(1,j+1):
+        if phi(E(j)^k) == 0:
+            R.append(E(j)^k)
+
+    h=P(0)
+    for t in range(j):
+        result=0
+        for r in R:
+            result += (1/j)*((r^(-t))/f(r))
+        h+=P(result*x^t)
+
+    c= ((j)^(floor(N/j)))*factorial(floor(N/j))
+    return (1/c)*h
+
+###########################################################################################
+# Computation of Gaussian-Ramanujan Sum for given 0<=j<k.
+# INPUT:
+#      k,j: non-negative integers with 0<=j<k
+# OUTPUT:
+#      returns the values the sums for various powers
+###########################################################################################
+def GRS(k,j):
+    P=PolynomialRing(QQ,'x')
+    p=P(1)
+    for s in range(1,j+1):
+        p*=P(1-x^s)
+    phi=cyclotomic_polynomial(k)
+    R=[]
+    for s in range(1,k+1):
+        if phi(E(k)^s) == 0:
+            R.append(E(k)^s)
+    L=[]
+    for t in range(k):
+        sigma=0
+        for xi in R:
+            sigma+=((xi)^(-t))/p(xi)
+        L.append((1/k)*sigma)
+
+    return ['j='+str(j)]+L
+###########################################################################################
+# Computation of Gaussian-Ramanujan Sum for given k
+# INPUT:
+#      k: non-negative integer
+# OUTPUT:
+#      returns a table object with various values
+###########################################################################################
+def GRS_table(k):
+    rows = [['t=']+range(k)]
+    for j in range(k):
+        rows.append(GRS(k,j))
+    return table(rows,frame=True)
+
+
+
+###########################################################################################
+# computation of coefficients through Bell polynomial
+# INPUT:
+#      N: specify the N in F_N(x)
+#      l,u: compute W1(t,N) for l<=t<=u
+# OUTPUT:
+#        W1(t,N) for l<=t<=u
+###########################################################################################
+def W1_taylor(N,l,u):
+    P=PolynomialRing(QQ,'x')
+    K=N-1
+    p=P(1)
+    for k in range(1,N+1):
+        g= P((1-(1-x)^k)/x)
+        p*=g
+    A(x)=P(1)/p
+    #B(x)=taylor(A,x,0,K)
+    M=[]
+    if K==0:
+        M=[1/factorial(N)]
+    else:
+        M=[1/factorial(N)]
+        for n in range(1,K+1):
+            L=p.list()
+            a=L.pop(0)
+            for j in range(len(L)):
+                L[j]=L[j]*factorial(j+1)
+            for k in range(len(L)-1,n-1):
+                L.append(0)
+            if n< p.degree():
+                while len(L) != n:
+                    popx=L.pop()
+            t=L
+            s=0
+            for k in range(1,n+1):
+                b=bell_polynomial(n,k)(t)
+                s+=(factorial(k)*(-1)^(k))/(factorial(n)*a^(k+1))*b
+                L=list(t)
+                popx=L.pop()
+                t=L
+            M.append(s)
+    L1=[]
+    for t1 in range(l,u+1):
+        poly_sum=0
+        for i in range(0,N):
+            poly_sum=poly_sum+M[i]*binomial(t1+N-1-i,t1)
+        L1.append((t1,poly_sum))
+
+    return L1
+
+###########################################################################################
+# Computation through Taylor sereis of the coefficients associated with 2nd frequence
+# INPUT:
+#      N: specify the n in F_N(x)
+# OUTPUT:
+#        the coefficients d_j in d_j/(1-x^2)^(floor(N/2)-j) for 0<=j<=floor(N/2)-1
+###########################################################################################
+def gamma_tilde_2(N):
+    P=PolynomialRing(QQ,'x')
+    n=floor(N/2)
+    p=P(1)
+    for k in range(1,N+1):
+        g= P(1-(x-1)^k)
+        p*=g
+    p=P(p/(x)^(floor(N/2)))
+    A(x)=P(1)/p
+    B(x)=taylor(A,x,0,n)
+    C(x)=B(x)
+    L=[]
+    for j in range(n+1):
+        L.append(C(0)/factorial(j))
+        C(x)=C(x).derivative()
+    return L
+
+###########################################################################################
+# Computation of W_2(t,N) through gamma_tilde_2 method
+# INPUT:
+#      N: specify the n in F_N(x)
+#      l,u: t in [l,u]
+# OUTPUT:
+#      list with elements W_2(t,N) for t in [l,u]
+# EXAMPLE:
+#      W_2_taylor(N,l,u) == Restricted_Partition(N,l,u,2,False)
+###########################################################################################
+def W2_taylor(N,l,u):
+    L=gamma_tilde_2(N)
+    M=[]
+    for n in range(l,u+1):
+        s=0
+        for j in range(len(L)):
+            s+=binomial(n+floor(N/2)-j-1,n)*L[j]
+        M.append((n,(-1)^n*s))
+    return M
+
+###########################################################################################
+# Extended Cover-Up Method
+# INPUT:
+#        r: polynomial in the numerator
+#        s: list of pairwise relatively prime polnomial factors in the denominator
+# OUTPUT:
+#        prints the partial fractions for r/(s[0]*...*s[k-1]), where k=len(s)
+# EXAMPLE:
+#   P=PolynomialRing(QQ,'x')
+#   extended_cover_up(P(1),[P(x^2+1), P(x-1)])
+###########################################################################################
+def extended_cover_up(r,s):
+    #number of factors in the denominator
+    k=len(s)
+
+    for i in range(0,k):
+        for j in range(i+1,k):
+            if gcd(s[i],s[j])!=1:
+                print("Invalid input: the factors should be pairwise relatively prime.")
+                return
+
+    #computing the numerators in the partial fraction using the extended cover-up method
+    f=[]
+    for i in range(0,k):
+        t=1
+        for j in range(0,k):
+            if i!=j:
+                t=t*s[j]
+        f.append(eval(r,t,s[i]))
+
+    return f
+
+# generate the divisors of n
+def divisorGenerator(n):
+    large_divisors = []
+    u=int(math.sqrt(n) + 1)
+    for i in xrange(1, u):
+        if n % i == 0:
+            yield i
+            if i*i != n:
+                large_divisors.append(n / i)
+    for divisor in reversed(large_divisors):
+        yield divisor
+
+# eval function with assumption gcd(s,a)=1
+def eval(r,s,a):
+    h=xgcd(s,a)
+    return (r*h[1])%a
+
+# eval function for 1/f2 wrt f1^k
+def eval_k(k,f1,f2):
+    P=PolynomialRing(QQ,'x')
+    (g,a1,a2)=xgcd(P(f1),P(f2))
+    s=0
+    for j in range(k):
+        s=s+((a2*((a1^j)%f2))%f1)*f1^j
+    return s
+
+# a generalized taylor series with terms (1-x^b)^j
+def gen_taylor(f,b):
+    P=PolynomialRing(QQ,x)
+    L=[]
+    for j in range(0,floor(f.degree()/b)+1):
+        L.append(((-1)^(j)/factorial(j))*eval(f,P(1),P(1-x^b)))
+        f=Diff_b(P(f),b)
+    return L
+
+def Diff_b(f,b):
+    P=PolynomialRing(QQ,x)
+    ff=list(f)
+    g=P(0)
+    for j in range(0,len(ff)):
+        g=g+P(ff[j])*diff_b(j,b)
+    return g
+
+def diff_b(k,b):
+    P=PolynomialRing(QQ,x)
+    if k>=b:
+        return floor(k/b)*P(x^(k-b))
+    else:
+        return P(0)
+
+
+# list the cyclotomic polynomials dividing x^k-1
+def list_cyclotomic_divisors(k):
+    L=list(divisorGenerator(k))
+    L_cyclotomic=[]
+
+    for n in L:
+        L_cyclotomic.append(cyclotomic_polynomial(n))
+
+    return L_cyclotomic
+
+# given a list of numbers returns a dictionary of the
+# count of the number of times a divisor occurs
+def list_count_divisors(L):
+    d_dict={}
+
+    for a in L:
+        L_a = list(divisorGenerator(a))
+
+        for m in L_a:
+            if m in d_dict:
+                d_dict[m]=d_dict[m]+1
+            else:
+                d_dict[m]=1
+
+    return d_dict
+
+# given a dictionary of divisors and multiplicities return a dict of cyclotomic polynomials with powers
+def dict_cyclotomic_with_powers(D):
+    P=PolynomialRing(QQ,'x')
+    D_dict={}
+    for a in D:
+        D_dict[a]=P(cyclotomic_polynomial(a)^(D[a]))
+    return D_dict
+
+# given a dictionary of divisors and multiplicities return a list of cyclotomic polynomials with powers
+def list_cyclotomic_with_powers(D):
+    P=PolynomialRing(QQ,'x')
+    L=[]
+    for a in D:
+        L.append(P(cyclotomic_polynomial(a)^(D[a])))
+    return L
+
+# inverse cyclotomic polynomials
+def inverse_cyclotomic_polynomial(k):
+    P=PolynomialRing(QQ,'x')
+    return P(x^k-1)/P(cyclotomic_polynomial(k))
+
+
+
+
+
+
+
+
+
+
+
