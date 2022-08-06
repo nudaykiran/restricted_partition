@@ -1,5 +1,5 @@
-︠##########################################################################################
-# (SageMath code)
+︠aa35767d-b688-45fc-9e33-f15f20d10e01︠
+###########################################################################################
 # This file contains the following functions, along with helper functions:
 # 1) Restricted_Partition :Given a positive integer N and a range [l,u], this method determines the
 #                          values p_N(t) for t in [l,u] using q-partial fractions on the generating
@@ -8,11 +8,32 @@
 #                          q-partial fractions.
 # 2) first_poly_j: determine the polynomial g_0j(x) in the q-partial fraction of F_n(x) using a
 #                  exponential sums.
-# 3) GRS      : returns a list of Gaussian-Ramanujan sums for a given k and j, and for all 0<= t<k.
+# 3) GRS      : return a list of Gaussian-Ramanujan sums for a given k and j, and for all 0<= t<k.
 # 4) GRS_table: draws the k^2 values of Gaussian-Ramanujan sum for all t,j
 # 5) W1_taylor: determines W1(t,N) for t in [l,u] using Taylor series via bell polynomials.
 # 6) W2_taylor: determines W1(t,N) for t in [l,u] using in-built taylor method.
 ###########################################################################################
+
+#GRS_table(8)
+#L=Restricted_Partition(13,1,20,1,False)
+#M=Restricted_Partition(13,1,20,2,False)
+#N=Restricted_Partition(13,1,20,4,False)
+#g=Graphics()
+#g+=list_plot(L,plotjoined=True)
+#g+=list_plot(M,plotjoined=True,color='red')
+#g+=list_plot(N,plotjoined=True,color='black')
+#g.show()
+#GRS_table(2)
+
+#L=Restricted_Partition(7,1,2,1,True)
+
+# GRS(k,j,t)
+# GRS(k,1,0)=-GRS(k,1,k-1)
+# GRS(k,-1,t)=0
+# GRS(k,j,t)=GRS(k,j,t-j)+GRS(k,j-1,t)
+# GRS(k,k-1,t)=(1/k)GRS(k,0,t)
+# k is prime and powers of prime..
+
 
 ###########################################################################################
 # Computing the Restricted Partition p_n(t) using q-partial fractions on the generating
@@ -34,6 +55,7 @@
 # L=Restricted_Partition(N,l,u,0,True)
 #
 ###########################################################################################
+
 def Restricted_Partition(n,s1,s2,freq=0,print_qPF=False):
     P=PolynomialRing(QQ,'x')
     delta=n%2
@@ -51,7 +73,13 @@ def Restricted_Partition(n,s1,s2,freq=0,print_qPF=False):
     M=[]
     for k in range(len(L)):
         g=(-1)^(D[k+1]+delta)*P(inverse_cyclotomic_polynomial(k+1))^(D[k+1])
+        if k==1:
+            print(L[k]*g)
         M.append(L[k]*g)
+
+
+
+
 
     S=str("(")+str(M[0])+str(")")+str("/")+str("(")+str(P(1))+str("-")+str(P(x))+str(")")+str("^")+str(n)
     for k in range(1,len(L)):
@@ -137,6 +165,8 @@ def first_poly_j(n,j):
 #      returns the values the sums for various powers
 ###########################################################################################
 def GRS(k,j):
+    jj=j
+    j=j #k-i-j
     P=PolynomialRing(QQ,'x')
     p=P(1)
     for s in range(1,j+1):
@@ -146,14 +176,17 @@ def GRS(k,j):
     for s in range(1,k+1):
         if phi(E(k)^s) == 0:
             R.append(E(k)^s)
+
     L=[]
     for t in range(k):
         sigma=0
         for xi in R:
-            sigma+=((xi)^(-t))/p(xi)
-        L.append((1/k)*sigma)
+            sigma+=((xi)^(-t))*p(xi)
+        L.append(sigma)
 
-    return ['j='+str(j)]+L
+    return ['j='+str(jj)]+L
+
+
 ###########################################################################################
 # Computation of Gaussian-Ramanujan Sum for given k
 # INPUT:
@@ -166,7 +199,6 @@ def GRS_table(k):
     for j in range(k):
         rows.append(GRS(k,j))
     return table(rows,frame=True)
-
 
 
 ###########################################################################################
